@@ -1,1 +1,6 @@
 # Sensor-Placement-Optimization
+Virtual environment based on Python 3.12.6
+Packages:
+- networkx 3.5
+- matplotlib
+- 
