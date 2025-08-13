@@ -103,7 +103,7 @@ def build_graph(file_path: str, graphname: str) -> nx.Graph:
         if row['to'] in source_nodes:
             raise ValueError(f"Cannot add edge to source node {row['to']}.")
                 
-        G.add_edge(row['from'], row['to'])
+        G.add_edge(row['from'], row['to'], weight=row['weight'])
 
     return G
 
