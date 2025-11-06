@@ -1,3 +1,4 @@
+import os
 import networkx as nx
 import matplotlib
 import matplotlib.pyplot as plt
@@ -24,15 +25,18 @@ def visualize_graph(G: nx.Graph, title: str = None, save: bool = False, spring: 
         plt.title(title)
     plt.show()
     
-    if save:
-        if title:
-            filename = title.replace(" ", "_") + ".png"
-        else:
-            filename = "graph.png"
-        plt.savefig(filename) # it saves a blank canvas, not working
-        print(f"Graph saved as {filename}")
-    
-    
+    # if save:
+    #     folder = "graph_images"
+        
+    #     if title:
+    #         filename = title.replace(" ", "_") + ".png"
+    #     else:
+    #         filename = "graph.png"
+    #     file_path = os.path.join(folder, filename)
+    #     plt.savefig(file_path) # it saves a blank canvas, not working
+    #     print(f"Graph saved as {filename}")
+
+
 def get_fig_size_from_screen() -> tuple:
     # screen resolution
     root = tk.Tk()
