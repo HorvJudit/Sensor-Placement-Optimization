@@ -24,14 +24,14 @@ def generate_graph_from_file(graphname: str) -> nx.Graph:
         return read_graph_from_file(file_path)
     else:    
         excel_file_path = "graph_data.xlsx"    
-        G = build_graph(excel_file_path, graphname)
+        G = build_graph(excel_file_path)
         write_graph_to_file(G, file_path)
         return G
 
-def build_graph(file_path: str, graphname: str) -> nx.Graph:
+def build_graph(file_path: str) -> nx.Graph:
     import pandas as pd
-    df_nodes = pd.read_excel(file_path, sheet_name=graphname+'_nodes')
-    df_edges = pd.read_excel(file_path, sheet_name=graphname+'_edges')
+    df_nodes = pd.read_excel(file_path, sheet_name='nodes')
+    df_edges = pd.read_excel(file_path, sheet_name='edges')
     G = nx.DiGraph()
     
     # Add nodes
