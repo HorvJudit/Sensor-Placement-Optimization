@@ -1,53 +1,5 @@
 import networkx as nx
 import pickle
-import random
-
-def generate_random_graph(seed: int = None, nodes_num:int = None, source_nodes_num:int = None, sink_nodes_num:int = None) -> nx.Graph:
-
-    parameter_validation(nodes_num, source_nodes_num, sink_nodes_num)
-    
-    if seed is not None:
-        random.seed(seed)
-        
-    if nodes_num is None:
-        nodes_num = random.randint(5, 20)        
-    if source_nodes_num is None:
-        source_nodes_num = random.randint(1, nodes_num // 2)
-    if sink_nodes_num is None:
-        sink_nodes_num = random.randint(1, nodes_num // 2)
-        
-    G = nx.DiGraph()
-    
-    # Add nodes
-    nodes = list(range(nodes_num))
-    random.shuffle(nodes)
-    
-    source_nodes = nodes[:source_nodes_num]
-    sink_nodes = nodes[source_nodes_num:source_nodes_num + sink_nodes_num]
-    junction_nodes = nodes[source_nodes_num + sink_nodes_num:]
-    
-    for node in source_nodes:
-        G.add_node(node, type="source", has_sensor=False)
-
-    for node in sink_nodes:
-        G.add_node(node, type="sink", has_sensor=False)
-
-    for node in junction_nodes:
-        G.add_node(node, type="junction", has_sensor=False)
-        
-    # Add edges
-    for i_node in nodes:
-        for j_node in nodes:
-            if i_node == j_node:
-                continue
-            if i_node not in sink_nodes and j_node not in source_nodes:
-                if random.random() < 0.05:
-                    G.add_edge(i_node, j_node)
-            if j_node not in sink_nodes and i_node not in source_nodes:
-                if random.random() < 0.05:
-                    G.add_edge(j_node, i_node)
-    
-    return G
 
 def parameter_validation(nodes_num, source_nodes_num, sink_nodes_num):
     if nodes_num is not None:
