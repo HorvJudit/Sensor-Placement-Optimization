@@ -13,7 +13,7 @@ def parameter_validation(nodes_num, source_nodes_num, sink_nodes_num):
             raise ValueError("Sum of source and sink nodes must be less than total number of nodes.")
         
 
-def generate_graph_from_file(graphname: str) -> nx.Graph:
+def generate_graph_from_file(graphname: str, excel_file_path: str) -> nx.Graph:
     import os
     folder = "predefined graphs"
     filename = graphname + ".pkl"   
@@ -23,7 +23,6 @@ def generate_graph_from_file(graphname: str) -> nx.Graph:
         # Check if the graph file exists        
         return read_graph_from_file(file_path)
     else:    
-        excel_file_path = "graph_data.xlsx"    
         G = build_graph(excel_file_path)
         write_graph_to_file(G, file_path)
         return G
