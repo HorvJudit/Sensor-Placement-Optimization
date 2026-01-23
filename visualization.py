@@ -7,198 +7,164 @@ from networkx.drawing.nx_agraph import graphviz_layout
 from config import node_colors
 import tkinter as tk
 
-def calculate_graph_layout(G: nx.Graph, min_h_distance: float = 1.5, min_v_distance: float = 2.0, iterations: int = 15) -> dict:
-    """
-    Calculates the (x, y) positions for a DAG, handling 'long edges' with dummy nodes.
-    """
+def calculate_graph_layout(G:nx.Graph, min_h_distance: int = 1.5, min_v_distance: int = 2.0, iterations: int = 10) -> dict[int, tuple[int, int]]:
+    """Calculates the (x, y) positions for each node in the graph G using a simple layout algorithm."""
     
-    # 1. lépés: Gráf struktúra és Rétegek meghatározása
-    # (Ez ugyanaz, mint eddig, csak most a networkx gráfot használjuk közvetlenül)
-    adj, rev_adj = _build_graph_structure(G)
-    max_layer, nodes_by_layer, layer_map = _assign_layers(G, rev_adj)
-    
-    # 2. lépés: Virtuális (Dummy) node-ok beszúrása a hosszú élekhez
-    # Ez a "titkos összetevő", ami helyet csinál az átívelő éleknek.
-    aug_adj, aug_rev_adj, aug_nodes_by_layer, dummies = _insert_dummy_nodes(
-        adj, rev_adj, nodes_by_layer, layer_map
-    )
-    
-    # 3. lépés: Kezdeti pozíciók
-    positions = _initialize_positions(aug_nodes_by_layer, max_layer, min_h_distance, min_v_distance)
-    
-    # 4. lépés: Optimalizálás (Barycenter módszer) a kibővített gráfon
-    _optimize_node_order(aug_nodes_by_layer, aug_adj, aug_rev_adj, positions, min_h_distance, max_layer, iterations)
-    
-    # 5. lépés: Koordináták véglegesítése (kivesszük a dummy-kat)
-    final_coordinates = _finalize_coordinates(aug_nodes_by_layer, positions, min_h_distance, max_layer, dummies)
-    
+    adjacency, reversed_adjacency = _build_graph_structure(G)
+    max_layer, nodes_by_layer = _assign_layers(G, reversed_adjacency)
+    positions = _initialize_positions(nodes_by_layer, max_layer, min_h_distance, min_v_distance)
+    _optimize_node_order(nodes_by_layer, adjacency, reversed_adjacency, positions, min_h_distance, max_layer, iterations)
+    final_coordinates = _finalize_coordinates(nodes_by_layer, positions, min_h_distance, max_layer)
     return final_coordinates
-
-# --- Segédfüggvények ---
-
-def _build_graph_structure(G):
-    adj = {n: [] for n in G.nodes()}
-    rev_adj = {n: [] for n in G.nodes()}
+    
+    
+def _build_graph_structure(G: nx.Graph) -> tuple[dict, dict]:
+    """Builds adjacency lists from edge list."""
+    adj = {}
+    reversed_adj = {} # parents
+    
     for u, v in G.edges():
+        if u not in adj:
+            adj[u] = []
         adj[u].append(v)
-        rev_adj[v].append(u)
-    return adj, rev_adj
+        if v not in reversed_adj:
+            reversed_adj[v] = []
+        reversed_adj[v].append(u)
+        
+    for node in G.nodes():
+        if node not in adj:
+            adj[node] = []
+        if node not in reversed_adj:
+            reversed_adj[node] = []   
+             
+    return adj, reversed_adj
 
-def _assign_layers(G, rev_adj):
+def _assign_layers(G: nx.Graph, reversed_adjacency) -> tuple[int, dict, dict]:
+    """Calculates the layer (depth) for each node using DFS/Memoization."""
     memo = {}
     
     def get_depth(node, path_stack):
-        if node in memo: return memo[node]
-        if node in path_stack: return 0 # Cycle
+        if node in memo:
+            return memo[node]        
+        if node in path_stack:
+            return 0  # Prevent cycles    
         
-        parents = rev_adj[node]
+        parents = reversed_adjacency[node]
         if not parents:
             return 0
         
         path_stack.append(node)
-        max_depth = 0
-        for p in parents:
-            d = get_depth(p, path_stack)
-            if d > max_depth: max_depth = d
+        max_parent_depth = 0
+        for parent in parents:
+            parent_depth = get_depth(parent, path_stack)
+            if parent_depth > max_parent_depth:
+                max_parent_depth = parent_depth
         path_stack.pop()
         
-        depth = max_depth + 1
+        depth = max_parent_depth + 1
         memo[node] = depth
         return depth
-
+    
     nodes_by_layer = {}
-    layer_map = {} # Gyors kereséshez: node -> layer
     max_layer = 0
     
-    for node in G.nodes():
-        layer = get_depth(node, [])
-        layer_map[node] = layer
-        if layer not in nodes_by_layer:
-            nodes_by_layer[layer] = []
-        nodes_by_layer[layer].append(node)
-        if layer > max_layer:
-            max_layer = layer
+    for node in G.nodes:
+        layer_index = get_depth(node, [])        
+        if layer_index not in nodes_by_layer:
+            nodes_by_layer[layer_index] = []
+        nodes_by_layer[layer_index].append(node)
+        if layer_index > max_layer:
+            max_layer = layer_index
             
-    return max_layer, nodes_by_layer, layer_map
+    return max_layer, nodes_by_layer
 
-def _insert_dummy_nodes(adj, rev_adj, nodes_by_layer, layer_map):
-    """
-    Létrehoz egy "kiterjesztett" gráfot, ahol a hosszú éleket (melyek szintkülönbsége > 1)
-    feldarabolja dummy node-okkal.
-    """
-    # Másolatokat készítünk, mert módosítani fogjuk őket
-    aug_adj = {k: list(v) for k, v in adj.items()}
-    aug_rev_adj = {k: list(v) for k, v in rev_adj.items()}
-    aug_nodes_by_layer = {k: list(v) for k, v in nodes_by_layer.items()}
-    
-    dummies = set() # Nyilvántartjuk, melyek a virtuális pontok
-    
-    # Végigmegyünk az összes EREDETI élen
-    for u, neighbors in adj.items():
-        for v in neighbors:
-            layer_u = layer_map[u]
-            layer_v = layer_map[v]
-            
-            # Ha az él több mint 1 szintet ugrik (pl. 0 -> 2)
-            if layer_v > layer_u + 1:
-                # Az eredeti közvetlen kapcsolatot töröljük a kiterjesztett gráfban
-                # (de vigyázzunk, a ciklus miatt az eredeti adj-on iterálunk, de az aug-ot módosítjuk)
-                if v in aug_adj[u]: aug_adj[u].remove(v)
-                if u in aug_rev_adj[v]: aug_rev_adj[v].remove(u)
-                
-                # Lánc építése: u -> d1 -> d2 -> ... -> v
-                current_source = u
-                
-                for k in range(layer_u + 1, layer_v):
-                    dummy_node = f"__dummy_{u}_{v}_{k}" # Egyedi név
-                    dummies.add(dummy_node)
-                    
-                    # Hozzáadás a réteghez
-                    if k not in aug_nodes_by_layer: aug_nodes_by_layer[k] = []
-                    aug_nodes_by_layer[k].append(dummy_node)
-                    
-                    # Gráf élek frissítése (láncolás)
-                    if current_source not in aug_adj: aug_adj[current_source] = []
-                    aug_adj[current_source].append(dummy_node)
-                    
-                    aug_rev_adj[dummy_node] = [current_source]
-                    aug_adj[dummy_node] = [] # Init
-                    
-                    current_source = dummy_node
-                
-                # Utolsó dummy összekötése a céllal
-                aug_adj[current_source].append(v)
-                aug_rev_adj[v].append(current_source)
-                
-    return aug_adj, aug_rev_adj, aug_nodes_by_layer, dummies
-
-def _initialize_positions(nodes_by_layer, max_layer, min_h_dist, min_v_dist):
+def _initialize_positions(nodes_by_layer, max_layer, min_h_distance, min_v_distance):
+    """Sets initial X, Y positions based on arbitrary order."""
     positions = {}
-    for l in range(max_layer + 1):
-        if l in nodes_by_layer:
-            for i, node in enumerate(nodes_by_layer[l]):
-                positions[node] = {'x': i * min_h_dist, 'y': -l * min_v_dist}
+    for layer_index in range(max_layer + 1):
+        if layer_index in nodes_by_layer:
+            layer_nodes = nodes_by_layer[layer_index]
+            for i, node in enumerate(layer_nodes):
+                positions[node] = {
+                    'x': i * min_h_distance, 
+                    'y': -layer_index * min_v_distance
+                }  # Initial x based on index, y based on layer
     return positions
-
-def _optimize_node_order(nodes_by_layer, adj, rev_adj, positions, min_h_dist, max_layer, iterations):
-    # Ugyanaz a Barycenter logika, de most már a dummy node-okat is rendezgeti
+        
+def _optimize_node_order(nodes_by_layer, adjacency, reversed_adjacency, positions, min_h_distance, max_layer, iterations):
+    """Modifies 'positions' and 'nodes_by_layer' in-place using Barycenter heuristic."""
     for _ in range(iterations):
-        # Down (szülők szerint)
-        for l in range(1, max_layer + 1):
-            _barycenter_pass(l, nodes_by_layer, rev_adj, positions, min_h_dist)
-        # Up (gyerekek szerint)
-        for l in range(max_layer - 1, -1, -1):
-            _barycenter_pass(l, nodes_by_layer, adj, positions, min_h_dist)
-
-def _barycenter_pass(layer, nodes_by_layer, neighbors_map, positions, min_h_dist):
-    if layer not in nodes_by_layer: return
-    nodes = nodes_by_layer[layer]
+        # Down sweep
+        for layer_index in range(1, max_layer + 1):
+            _apply_barycenter_sort(layer_index, nodes_by_layer, reversed_adjacency, positions, min_h_distance)
+        # Up sweep
+        for layer_index in range(max_layer - 1, -1, -1):
+            _apply_barycenter_sort(layer_index, nodes_by_layer, adjacency, positions, min_h_distance) 
+    
+def _apply_barycenter_sort(layer_index, nodes_by_layer, neighbors_adjacency, positions, min_h_distance):
+    """Sorts a single layer based on average position of neighbors."""
+    if layer_index not in nodes_by_layer:
+        return
+    
+    current_nodes = nodes_by_layer[layer_index]
     new_order = []
     
-    for node in nodes:
-        neighbors = neighbors_map.get(node, [])
+    for node in current_nodes:
+        neighbors = neighbors_adjacency[node]
         if not neighbors:
+            # Keep current X if no neighbors constrain it
             new_order.append((positions[node]['x'], node))
-        else:
-            avg = sum(positions[n]['x'] for n in neighbors) / len(neighbors)
-            new_order.append((avg, node))
-            
+            continue
+        
+        # Calculate average X of neighbors
+        average_x = sum(positions[neighbor]['x'] for neighbor in neighbors) / len(neighbors)
+        new_order.append((average_x, node))
+        
+    # Sort nodes based on average neighbor X
     new_order.sort(key=lambda x: x[0])
     
-    for i, (avg, node) in enumerate(new_order):
-        positions[node]['x'] = i * min_h_dist
+    # Reassing strictly spaced X coordinates based on the new order
+    # (This prevents nodes from collapsing into the same position)
+    for i, (average_x, node) in enumerate(new_order):
+        positions[node]['x'] = i * min_h_distance
+        
+    # update the layer list with the new order
+    nodes_by_layer[layer_index] = [node for _, node in new_order] 
     
-    nodes_by_layer[layer] = [n for _, n in new_order]
-
-def _finalize_coordinates(nodes_by_layer, positions, min_h_dist, max_layer, dummies):
-    final_coords = {}
+def _finalize_coordinates(nodes_by_layer, positions, min_h_distance, max_layer):
+    """Centers the layers and returns the final plain coordinate dictionary."""
+    final_coordinates = {}
     max_width = 0
-    layer_widths = {}
     
-    # 1. Szélességek számolása (dummykkal együtt, mert ők is foglalják a helyet!)
-    for l in range(max_layer + 1):
-        if l not in nodes_by_layer: continue
-        nodes = nodes_by_layer[l]
-        width = (len(nodes) - 1) * min_h_dist
-        layer_widths[l] = width
-        if width > max_width: max_width = width
+    # 1. Determine the width of each layer and find the widest one
+    layer_widths = {}
+    for layer_index in range(max_layer + 1):
+        if layer_index not in nodes_by_layer:
+            continue
         
-    # 2. Középre igazítás és dummy szűrés
-    for l in range(max_layer + 1):
-        if l not in nodes_by_layer: continue
-        nodes = nodes_by_layer[l]
-        offset = (max_width - layer_widths[l]) / 2
+        layer_nodes = nodes_by_layer[layer_index]
+        width = (len(layer_nodes) - 1) * min_h_distance
+        layer_widths[layer_index] = width
+        if width > max_width:
+            max_width = width
+    
+    # 2. Assign final coordinates with centering offset
+    for layer_index in range(max_layer + 1):
+        if layer_index not in nodes_by_layer:
+            continue
         
-        # A sorrend a _optimize_node_order miatt már jó
-        for i, node in enumerate(nodes):
-            if node in dummies:
-                continue # A dummy koordinátáját nem adjuk vissza (vagy opcionális)
+        layer_nodes = nodes_by_layer[layer_index]
+        current_width = layer_widths[layer_index]
+        offset = (max_width - current_width) / 2
+        
+        # We use the sorted order from nodes_by_layer
+        for i, node in enumerate(layer_nodes):
+            x = (i * min_h_distance) + offset
+            y = positions[node]['y'] # already correct
+            final_coordinates[node] = (x, y)
             
-            x = (i * min_h_dist) + offset
-            y = positions[node]['y']
-            final_coords[node] = (x, y)
-            
-    return final_coords
+    return final_coordinates
+
 
 def visualize_graph(G: nx.Graph, title: str = None, save: bool = False) -> None:
     
