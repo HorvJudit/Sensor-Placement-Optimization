@@ -207,7 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 # Databases
-HydroRIVERS_v10_gr.gdb/
+/HydroRIVERS_v10_gr.gdb
 
 # Predefined graphs
 predefined graphs/
+
