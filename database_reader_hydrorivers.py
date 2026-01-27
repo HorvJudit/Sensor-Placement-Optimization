@@ -2,8 +2,8 @@ import os
 import geopandas as gpd
 import pandas as pd
 import networkx as nx
-from visualization import visualize_graph
-from utility import write_graph_to_file
+from sensorplace.visualization import visualize_graph
+from sensorplace.utility import write_graph_to_file
 
 def grouping(gdb_path: str) -> dict[str, pd.DataFrame]:
     gdb_name = "HydroRIVERS_v10_gr.gdb"
@@ -77,33 +77,34 @@ def graph_builder(groups: dict[int, pd.DataFrame]) -> dict[int, nx.DiGraph]:
             
     return graph_dict
 
+if __name__ == "__main__":
     
-gdb_path = "datasets/HydroRIVERS_v10_gr.gdb"
-river_network_dict = grouping(gdb_path)
+    gdb_path = "datasets/HydroRIVERS_v10_gr.gdb"
+    river_network_dict = grouping(gdb_path)
 
-problems = check_problems(river_network_dict)
-print(f"There is {len(problems)} problematic river network.")
-for river_id, issue in problems[:10]:
-    print(river_id, issue)
+    problems = check_problems(river_network_dict)
+    print(f"There is {len(problems)} problematic river network.")
+    for river_id, issue in problems[:10]:
+        print(river_id, issue)
+        
+    graph_dict = graph_builder(river_network_dict)
+
+    folder = "predefined graphs"
+
+    for key, graph in graph_dict.items():
+        from sensorplace.utility import node_categorizer
+        node_categorizer(graph)
+        title = f"River Network {key}"
+        filename = title.replace(" ", "_")
+        write_graph_to_file(graph, filename)    
+        visualize_graph(graph, title=title, save=True)
     
-graph_dict = graph_builder(river_network_dict)
 
-folder = "predefined graphs"
+    #visualize_graph(graph_dict[90000136])
 
-for key, graph in graph_dict.items():
-    # from utility import node_categoryzer
-    # node_categoryzer(graph)
-    title = f"River Network {key}"
-    filename = title.replace(" ", "_")
-    write_graph_to_file(graph, filename)    
-    visualize_graph(graph, title=title, save=True)
-    
+    #print(graph_dict[90000136].nodes(data=True))
+    # visualize_graph(graph_dict[90000136])
 
-#visualize_graph(graph_dict[90000136])
-
-#print(graph_dict[90000136].nodes(data=True))
-# visualize_graph(graph_dict[90000136])
-
-#one_river_network = river_network_dict[90000136]
-# #another_river_network = river_network_dict[list(river_network_dict.keys())[6]]
+    #one_river_network = river_network_dict[90000136]
+    # #another_river_network = river_network_dict[list(river_network_dict.keys())[6]]
 

@@ -1,10 +1,7 @@
-import os
 import networkx as nx
 import matplotlib
 import matplotlib.pyplot as plt
-import random
-from networkx.drawing.nx_agraph import graphviz_layout
-from config import node_colors
+from sensorplace.config import node_colors
 import tkinter as tk
 
 def calculate_graph_layout(G: nx.Graph, min_h_distance: int = 1, min_v_distance: int = -5) -> dict:

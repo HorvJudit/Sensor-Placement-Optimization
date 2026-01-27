@@ -1,5 +1,5 @@
-from utility import generate_graph_from_file, add_sensors_to_node, read_graph_from_file
-from visualization import visualize_graph
+from sensorplace.utility import generate_graph_from_file, add_sensors_to_node, read_graph_from_file
+from sensorplace.visualization import visualize_graph
 #from optimization.generate import generate_population
 import networkx as nx
 

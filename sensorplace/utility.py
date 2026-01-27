@@ -37,13 +37,12 @@ def build_graph_from_dataframe(file_path: str) -> nx.Graph:
     import pandas as pd
     df = pd.read_excel(file_path)
     G = nx.from_pandas_edgelist(df, source='from', target='to', edge_attr='weight', create_using=nx.DiGraph)
-    nx.set_node_attributes(G, False, name='has_sensor')
-    
-    # node_categoryzer(G)
+    nx.set_node_attributes(G, False, name='has_sensor')    
+    node_categorizer(G)
 
     return G
 
-def node_categoryzer(G: nx.DiGraph) -> None :
+def node_categorizer(G: nx.DiGraph) -> None :
     for node in G.nodes():
         if G.out_degree(node) == 0:
             G.nodes[node]['type'] = 'sink'
