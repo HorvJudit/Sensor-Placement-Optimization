@@ -6,7 +6,8 @@ from visualization import visualize_graph
 from utility import write_graph_to_file
 
 def grouping(gdb_path: str) -> dict[str, pd.DataFrame]:
-    layer_name = gdb_path[:-4]
+    gdb_name = "HydroRIVERS_v10_gr.gdb"
+    layer_name = gdb_name[:-4]
     gdf = gpd.read_file(gdb_path, layer=layer_name)
 
     cols_to_keep = ["HYRIV_ID", "NEXT_DOWN", "MAIN_RIV", "LENGTH_KM"]
@@ -54,6 +55,9 @@ def graph_builder(groups: dict[int, pd.DataFrame]) -> dict[int, nx.DiGraph]:
     for river_network_id, river_network_df in groups.items():
         G = nx.DiGraph()
         
+        nx.set_node_attributes(G, False, name='has_sensor')
+        
+        
         node_set = set(river_network_df["HYRIV_ID"]) | set(river_network_df["NEXT_DOWN"])
         node_list = list(node_set)
         node_list.sort()
@@ -61,7 +65,6 @@ def graph_builder(groups: dict[int, pd.DataFrame]) -> dict[int, nx.DiGraph]:
         node_dict = {}
         for id, counter in zip(node_list, range(0, len(node_list))):
             node_dict[id] = counter
-            G.add_node(counter, type='default', has_sensor=False)
         
         for _, row in river_network_df.iterrows():
             
@@ -74,22 +77,8 @@ def graph_builder(groups: dict[int, pd.DataFrame]) -> dict[int, nx.DiGraph]:
             
     return graph_dict
 
-def node_categoryzer(G: nx.DiGraph) -> None :
-    for node in G.nodes():
-        if G.out_degree(node) == 0:
-            G.nodes[node]['type'] = 'sink'
-        elif G.in_degree(node) == 0:
-            G.nodes[node]['type'] = 'source'
-        else:
-            G.nodes[node]['type'] = 'junction'
-
-def node_layerer(G) -> dict[int, int]:
-    layer = nx.topological_generations(G)  # networkx >=2.5
-    for i, gen in enumerate(layer):
-        for node in gen:
-            G.nodes[node]["layer"] = i
     
-gdb_path = "HydroRIVERS_v10_gr.gdb"
+gdb_path = "datasets/HydroRIVERS_v10_gr.gdb"
 river_network_dict = grouping(gdb_path)
 
 problems = check_problems(river_network_dict)
@@ -102,13 +91,13 @@ graph_dict = graph_builder(river_network_dict)
 folder = "predefined graphs"
 
 for key, graph in graph_dict.items():
-    node_categoryzer(graph)
-    node_layerer(graph)
+    # from utility import node_categoryzer
+    # node_categoryzer(graph)
     title = f"River Network {key}"
+    filename = title.replace(" ", "_")
+    write_graph_to_file(graph, filename)    
     visualize_graph(graph, title=title, save=True)
-    filename = title.replace(" ", "_") + ".pkl"
-    file_path = os.path.join(folder, filename)
-    write_graph_to_file(graph, file_path)
+    
 
 #visualize_graph(graph_dict[90000136])
 
