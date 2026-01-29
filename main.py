@@ -4,15 +4,14 @@ from sensorplace.visualization import visualize_graph
 import networkx as nx
 
 G = generate_graph_from_file("dummy_graph", "Dummy graph")
-# G = read_graph_from_file("dnister_network")
+# G = generate_graph_from_file("dnister_network", "Dnister river network")
 print(list(G.nodes(data=True)))
-#G = generate_graph_from_file("dummy_graph", "Dummy graph")
 #G = ...
 
 # sensor_nodes = [1, 2, 3, 4, 5, 20, 21, 22]
 # add_sensors_to_node(G, sensor_nodes)
 
-# visualize_graph(G)
+visualize_graph(G)
 
 # print(list(G.nodes(data=True))[0])
 
