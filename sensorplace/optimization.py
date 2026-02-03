@@ -1,6 +1,7 @@
 from collections import deque, Counter
 import networkx as nx
 
+import numpy as np
 import math
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -55,8 +56,7 @@ def analyze_graph(G: nx.Graph, sensor_positions: list) -> tuple[set, set, dict]:
     
     sensor_nodes = [i for i, bit in enumerate(sensor_positions) if bit == 1]
     if not sensor_nodes:
-        return set(), set(G.nodes()), {} #TODO: give the type of the empty return value
-    
+        return set(), set(G.nodes()), {}
     # Check how many nodes are observed from each sensor node
     # A node is observes if the node has a descendant with a sensor
     # But it is faster to find the all predecessors of the sensor nodes,
@@ -96,7 +96,7 @@ def analyze_graph(G: nx.Graph, sensor_positions: list) -> tuple[set, set, dict]:
     return observed_nodes, unobserved_nodes, sensor_to_nodes
 
 class SensorPlacementProblem(ElementwiseProblem):
-    def __init__(self, sensor_positions: list, G: nx.DiGraph, alpha: float = 0.5, sensor_cost: float = 1.0):
+    def __init__(self, G: nx.DiGraph, alpha: float = 0.5, sensor_cost: float = 1.0):
         self.G = G
         self.sensor_cost = sensor_cost
         self.alpha = alpha
@@ -124,13 +124,55 @@ class SensorPlacementProblem(ElementwiseProblem):
         out["F"] = [total_cost, -observation_quality]
     
 if __name__ == "__main__":
-    # Example usage
+    # Create a simple test graph (Directed tree-like structure)
+    # 7 -> 6 -> 5 -> 3, 4
+    # 2 -> 0, 1
+    # Connected components merging at 2 and 6
     G = nx.DiGraph()
-    G.add_edges_from([(0,2), (1,2), (3, 5), (4,5), (2,6), (5,6), (6,7)])
-    sensor_positions = [0, 0, 0, 0, 0, 0, 0, 0]  # Sensors at nodes 2 and 6
+    edges = [
+        (0, 2), (1, 2), # 0 and 1 flow into 2
+        (3, 5), (4, 5), # 3 and 4 flow into 5
+        (2, 6), (5, 6), # 2 and 5 flow into 6
+        (6, 7)          # 6 flows into 7 (Sink)
+    ]
+    G.add_edges_from(edges)
     
-    observed_nodes, unobserved_nodes, sensor_to_nodes = analyze_graph(G, sensor_positions)
-       
+    print(f"Graph created with {G.number_of_nodes()} nodes.")
+
+    # Initialize Problem
+    problem = SensorPlacementProblem(G, alpha=0.5)
+
+    # Setup Algorithm
+    algorithm = NSGA2(
+        pop_size=50,
+        n_offsprings=20,
+        sampling=BinaryRandomSampling(),
+        crossover=TwoPointCrossover(),
+        mutation=BitflipMutation(),
+        eliminate_duplicates=True
+    )
+
+    print("Running optimization...")
+    res = minimize(problem,
+                   algorithm,
+                   ('n_gen', 50),
+                   # seed=42,
+                   verbose=False)
+
+    print("\n=== RESULTS ===")
+    # Sort by cost for readability
+    sorted_indices = np.argsort(res.F[:, 0])
+    sorted_F = res.F[sorted_indices]
+    sorted_X = res.X[sorted_indices]
+
+    for i in range(len(sorted_F)):
+        cost = sorted_F[i, 0]
+        quality = -1 * sorted_F[i, 1] # Convert back to positive
+        
+        # Get active sensors for this solution
+        active_sensors = np.where(sorted_X[i] == 1)[0].tolist()
+        
+        print(f"Solution {i+1}: Cost={cost:.1f} | Quality={quality:.4f} | Sensors at: {active_sensors}")
     
     
     
