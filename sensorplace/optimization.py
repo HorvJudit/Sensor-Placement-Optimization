@@ -31,7 +31,7 @@ def calculate_observation_quality(G: nx.Graph, sensor_positions: list, alpha=0.5
         if alpha = 0.1, that means more weight on observing more nodes,
         if alpha = 0.5, balance between observing more nodes and load balancing and high resolution,
         if alpha = 0.9, more weight on load balancing and high resolution.
-        Keep alpha betwwen 0.1 and 0.9 for reasonable results.
+        Keep alpha between 0.1 and 0.9 for reasonable results.
     Returns:
     float
         The calculated observation quality.        
@@ -122,6 +122,78 @@ class SensorPlacementProblem(ElementwiseProblem):
         
         # We want to minimize cost and maximize observation quality
         out["F"] = [total_cost, -observation_quality]
+        
+def multi_objective_optimization(G: nx.DiGraph, population_size: int, n_offsprings: int, term_criteria: str, term_crit_num: int, eliminate_duplicates: bool, sensor_cost: float = 1.0, alpha: float = 0.5): 
+    """
+    Perform multi-objective optimization for sensor placement using NSGA-II.
+    Parameters:
+    G : nx.DiGraph
+        The directed graph representing the network.
+    population_size : int
+        The size of the population in the genetic algorithm.
+    n_offsprings : int
+        The number of offsprings to produce in each generation. The differene between population_size and n_offsprings is the number of elites.
+    term_criteria : str
+        The termination criteria for the optimization ('n_gen' for number of generations).
+    term_crit_num : int
+        The number associated with the termination criteria (e.g., number of generations).
+    eliminate_duplicates : bool
+        Whether to eliminate duplicate solutions in the population.
+    sensor_cost : float
+        The cost associated with deploying a single sensor.
+    alpha : float
+        The load balancing exponent. Higher values penalize sensors with higher loads more.
+        if alpha = 0.1, that means more weight on observing more nodes,
+        if alpha = 0.5, balance between observing more nodes and load balancing and high resolution,
+        if alpha = 0.9, more weight on load balancing and high resolution.
+        Keep alpha between 0.1 and 0.9 for reasonable results.
+    Returns:
+    res : pymoo.core.result.Result
+        The result object containing the optimization results.
+    """
+    problem = SensorPlacementProblem(G, alpha, sensor_cost)
+
+    # Setup the NSGA-II algorithm
+    algorithm = NSGA2(
+        pop_size=population_size,
+        n_offsprings=n_offsprings,
+        sampling=BinaryRandomSampling(),
+        crossover=TwoPointCrossover(),
+        mutation=BitflipMutation(),
+        eliminate_duplicates=eliminate_duplicates
+    )
+    
+    print("Running optimization...")
+
+    # Run the optimization
+    results = minimize(problem,
+                   algorithm,
+                   (term_criteria, term_crit_num),
+                   # seed=42,
+                   verbose=True)
+    
+    return results
+
+def sort_results_by_cost(results):
+    # Sort results by cost (first objective)
+    sorted_indices = np.argsort(results.F[:, 0])
+    sorted_F = results.F[sorted_indices]
+    sorted_X = results.X[sorted_indices]
+    
+    return sorted_F, sorted_X
+
+def print_results(results):
+    sorted_F, sorted_X = sort_results_by_cost(results)
+
+    for i in range(len(sorted_F)):
+        cost = sorted_F[i, 0]
+        quality = -1 * sorted_F[i, 1] # Convert back to positive
+        
+        # Get active sensors for this solution
+        active_sensors = np.where(sorted_X[i] == 1)[0].tolist()
+        
+        print(f"Solution {i+1}: Cost={cost:.1f} | Quality={quality:.4f} | Sensors at: {active_sensors}")
+    
     
 if __name__ == "__main__":
     # Create a simple test graph (Directed tree-like structure)
@@ -139,40 +211,16 @@ if __name__ == "__main__":
     
     print(f"Graph created with {G.number_of_nodes()} nodes.")
 
-    # Initialize Problem
-    problem = SensorPlacementProblem(G, alpha=0.5)
+    results = multi_objective_optimization(G, 
+                               population_size=50, 
+                               n_offsprings=20, 
+                               term_criteria='n_gen', 
+                               term_crit_num=50, 
+                               eliminate_duplicates=True,
+                               sensor_cost=1.0,
+                               alpha=0.5)
 
-    # Setup Algorithm
-    algorithm = NSGA2(
-        pop_size=50,
-        n_offsprings=20,
-        sampling=BinaryRandomSampling(),
-        crossover=TwoPointCrossover(),
-        mutation=BitflipMutation(),
-        eliminate_duplicates=True
-    )
-
-    print("Running optimization...")
-    res = minimize(problem,
-                   algorithm,
-                   ('n_gen', 50),
-                   # seed=42,
-                   verbose=False)
-
-    print("\n=== RESULTS ===")
-    # Sort by cost for readability
-    sorted_indices = np.argsort(res.F[:, 0])
-    sorted_F = res.F[sorted_indices]
-    sorted_X = res.X[sorted_indices]
-
-    for i in range(len(sorted_F)):
-        cost = sorted_F[i, 0]
-        quality = -1 * sorted_F[i, 1] # Convert back to positive
-        
-        # Get active sensors for this solution
-        active_sensors = np.where(sorted_X[i] == 1)[0].tolist()
-        
-        print(f"Solution {i+1}: Cost={cost:.1f} | Quality={quality:.4f} | Sensors at: {active_sensors}")
+    print_results(results)
     
     
     

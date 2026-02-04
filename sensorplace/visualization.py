@@ -102,17 +102,6 @@ def visualize_graph(G: nx.Graph, title: str = None, save: bool = False) -> None:
     if title:
         plt.title(title)
     plt.show()
-    
-    # if save:
-    #     folder = "graph_images"
-        
-    #     if title:
-    #         filename = title.replace(" ", "_") + ".png"
-    #     else:
-    #         filename = "graph.png"
-    #     file_path = os.path.join(folder, filename)
-    #     plt.savefig(file_path) # it saves a blank canvas, not working
-    #     print(f"Graph saved as {filename}")
 
 
 def _get_fig_size_from_screen() -> tuple:
@@ -128,3 +117,34 @@ def _get_fig_size_from_screen() -> tuple:
     fig_height = screen_height / dpi
     
     return fig_width, fig_height
+
+def visualize_pareto_front(results) -> None:
+    """
+    Visualizes the Pareto Front from the pymoo result object.
+    """
+    # 1. Extract the objective values
+    # F[:, 0] is Cost (x-axis)
+    # F[:, 1] is Negative Quality (y-axis needs flipping)
+    costs = results.F[:, 0]
+    qualities = -1 * results.F[:, 1]  # Flip back to positive!
+
+    # 2. Setup the plot
+    plt.figure(figsize=(10, 6))
+    
+    # Scatter plot
+    plt.scatter(costs, qualities, s=80, c='red', edgecolors='black', label='Pareto Optimal Solutions')
+    
+    # 3. Aesthetics
+    plt.title('Pareto Front: Cost vs. Observation Quality', fontsize=14)
+    plt.xlabel('Sensor Cost', fontsize=12)
+    plt.ylabel('Observation Quality', fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    
+    # 4. Annotate points (Optional but helpful)
+    # This helps you see exactly which point corresponds to which cost
+    for i, txt in enumerate(costs):
+        # Only label some points to avoid clutter if you have many
+        plt.annotate(f"{int(txt)}", (costs[i], qualities[i]), xytext=(5, 5), textcoords='offset points', fontsize=8)
+
+    plt.legend()
+    plt.show()
