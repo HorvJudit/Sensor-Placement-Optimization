@@ -1,5 +1,8 @@
 import networkx as nx
 import pickle
+import numpy as np
+
+from sensorplace.optimization import sort_results_by_cost
 
 def parameter_validation(nodes_num, source_nodes_num, sink_nodes_num):
     if nodes_num is not None:
@@ -67,3 +70,34 @@ def add_sensors_to_node(G: nx.Graph, node_id_list: list[int]) -> None:
         if node_id not in G.nodes:
             raise ValueError(f"Node {node_id} does not exist in the graph.")
         G.nodes[node_id]['has_sensor'] = True
+        
+def get_result_from_user_input(results):
+    _, sorted_X = sort_results_by_cost(results)
+    
+    result_index = input("Which result do you want to visualize? Give the number from the list above: ")
+    if result_index.isdigit():
+        result_index = int(result_index)
+    else:
+        raise ValueError("Please enter a valid integer index.")
+    if result_index < 1 or result_index > len(results.F):
+        raise ValueError("Index out of range of results.")
+    
+    result = sorted_X[result_index-1]
+    
+    return result
+    
+
+def get_active_sensors_from_result(result) -> list[int]:
+    active_sensors = np.where(result == 1)[0].tolist()
+    return active_sensors
+
+def generate_example_graph() -> nx.DiGraph:
+    G = nx.DiGraph()
+    edges = [
+        (0, 2), (1, 2), # 0 and 1 flow into 2
+        (3, 5), (4, 5), # 3 and 4 flow into 5
+        (2, 6), (5, 6), # 2 and 5 flow into 6
+        (6, 7)          # 6 flows into 7 (Sink)
+    ]
+    G.add_edges_from(edges)
+    return G
