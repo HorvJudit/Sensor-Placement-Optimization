@@ -1,6 +1,7 @@
 import networkx as nx
 import pickle
 import numpy as np
+import pandas as pd
 
 from sensorplace.optimization import sort_results_by_cost
 
@@ -32,18 +33,22 @@ def generate_graph_from_file(graph_name: str, folder_name: str) -> nx.Graph:
         # Check if the graph file exists        
         return read_graph_from_file(graph_name)
     else:    
-        G = build_graph_from_dataframe(dataset_file_path)
+        G = build_graph_from_excel_file(dataset_file_path)
         write_graph_to_file(G, graph_name)
         return G
 
-def build_graph_from_dataframe(file_path: str) -> nx.Graph:
-    import pandas as pd
+def build_graph_from_excel_file(file_path: str) -> nx.Graph:
+    
     df = pd.read_excel(file_path)
+    return build_graph_from_dataframe(df)
+
+def build_graph_from_dataframe(df: pd.DataFrame) -> nx.Graph:
     G = nx.from_pandas_edgelist(df, source='from', target='to', edge_attr='weight', create_using=nx.DiGraph)
     nx.set_node_attributes(G, False, name='has_sensor')    
     node_categorizer(G)
 
     return G
+
 
 def node_categorizer(G: nx.DiGraph) -> None :
     for node in G.nodes():
@@ -87,7 +92,7 @@ def get_result_from_user_input(results):
     return result
     
 
-def get_active_sensors_from_result(result) -> list[int]:
+def get_sensors_from_result(result) -> list[int]:
     active_sensors = np.where(result == 1)[0].tolist()
     return active_sensors
 
@@ -100,4 +105,5 @@ def generate_example_graph() -> nx.DiGraph:
         (6, 7)          # 6 flows into 7 (Sink)
     ]
     G.add_edges_from(edges)
+    node_categorizer(G)
     return G

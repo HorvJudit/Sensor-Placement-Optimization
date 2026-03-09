@@ -28,9 +28,9 @@ def calculate_observation_quality(G: nx.Graph, sensor_positions: list, alpha=0.5
         A binary list indicating the positions of sensors in the graph (1 for sensor, 0 for no sensor).
     alpha : float
         The load balancing exponent. Higher values penalize sensors with higher loads more.
-        if alpha = 0.1, that means more weight on observing more nodes,
+        if alpha = 0.9, that means more weight on observing more nodes,
         if alpha = 0.5, balance between observing more nodes and load balancing and high resolution,
-        if alpha = 0.9, more weight on load balancing and high resolution.
+        if alpha = 0.1, more weight on load balancing and high resolution.
         Keep alpha between 0.1 and 0.9 for reasonable results.
     Returns:
     float
@@ -44,9 +44,8 @@ def calculate_observation_quality(G: nx.Graph, sensor_positions: list, alpha=0.5
         load = len(nodes)
         
         if load > 0:
-            node_score = 1.0 / (load ** alpha)
             
-            sensor_contribution = node_score * load
+            sensor_contribution = load ** alpha
             total_score += sensor_contribution
             
     return total_score
@@ -123,7 +122,7 @@ class SensorPlacementProblem(ElementwiseProblem):
         # We want to minimize cost and maximize observation quality
         out["F"] = [total_cost, -observation_quality]
         
-def multi_objective_optimization(G: nx.DiGraph, population_size: int, n_offsprings: int, term_criteria: str, term_crit_num: int, eliminate_duplicates: bool, sensor_cost: float = 1.0, alpha: float = 0.5): 
+def multi_objective_optimization(G: nx.DiGraph, population_size: int, n_offsprings: int, term_criteria: str, term_crit_num: int, eliminate_duplicates: bool = True, sampling=BinaryRandomSampling(), crossover=TwoPointCrossover(), mutation=BitflipMutation(), sensor_cost: float = 1.0, alpha: float = 0.5): 
     """
     Perform multi-objective optimization for sensor placement using NSGA-II.
     Parameters:
@@ -157,9 +156,9 @@ def multi_objective_optimization(G: nx.DiGraph, population_size: int, n_offsprin
     algorithm = NSGA2(
         pop_size=population_size,
         n_offsprings=n_offsprings,
-        sampling=BinaryRandomSampling(),
-        crossover=TwoPointCrossover(),
-        mutation=BitflipMutation(),
+        sampling=sampling,
+        crossover=crossover,
+        mutation=mutation,
         eliminate_duplicates=eliminate_duplicates
     )
     
@@ -195,32 +194,6 @@ def print_results(results):
         print(f"Solution {i+1}: Cost={cost:.1f} | Quality={quality:.4f} | Sensors at: {active_sensors}")
     
     
-if __name__ == "__main__":
-    # Create a simple test graph (Directed tree-like structure)
-    # 7 -> 6 -> 5 -> 3, 4
-    # 2 -> 0, 1
-    # Connected components merging at 2 and 6
-    G = nx.DiGraph()
-    edges = [
-        (0, 2), (1, 2), # 0 and 1 flow into 2
-        (3, 5), (4, 5), # 3 and 4 flow into 5
-        (2, 6), (5, 6), # 2 and 5 flow into 6
-        (6, 7)          # 6 flows into 7 (Sink)
-    ]
-    G.add_edges_from(edges)
-    
-    print(f"Graph created with {G.number_of_nodes()} nodes.")
-
-    results = multi_objective_optimization(G, 
-                               population_size=50, 
-                               n_offsprings=20, 
-                               term_criteria='n_gen', 
-                               term_crit_num=50, 
-                               eliminate_duplicates=True,
-                               sensor_cost=1.0,
-                               alpha=0.5)
-
-    print_results(results)
     
     
     

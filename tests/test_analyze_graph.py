@@ -1,4 +1,4 @@
-import pytest
+
 import networkx as nx
 from sensorplace import optimization
 

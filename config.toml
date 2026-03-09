@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sensorplace"
+version = "0.1.0"
+description = "A package for optimizing sensor placement and number"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pymoo==0.6.1.6",
+    "networkx==3.5",
+    "matplotlib==3.10.5",
+    "pandas==2.3.1"
+]
